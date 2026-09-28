@@ -1,0 +1,837 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DAILY PASS GENERATOR</title>
+  <!-- BudouX (自然改行ライブラリ) -->
+  <script src="https://unpkg.com/budoux/bundle/budoux-ja.min.js"></script>
+  <!-- QRコード生成ライブラリ -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <!-- PNG書き出し用ライブラリ -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <!-- レトロフォント -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Courier+Prime:ital,wght@0,400;0,700;1,400&family=Zen+Maru+Gothic:wght@400;500;700&display=swap" rel="stylesheet">
+
+  <style>
+    body {
+      font-family: 'Courier Prime', 'Zen Maru Gothic', monospace;
+      background-color: #edece8;
+      margin: 0;
+      padding: 24px;
+      display: flex;
+      gap: 32px;
+      justify-content: center;
+      align-items: flex-start;
+      color: #333;
+    }
+
+    budoux-ja {
+      word-break: keep-all;
+      overflow-wrap: anywhere;
+      display: inline;
+    }
+
+    /* 操作パネル */
+    .form-panel {
+      background: #ffffff;
+      padding: 24px;
+      border-radius: 12px;
+      box-shadow: 0 4px 14px rgba(0,0,0,0.06);
+      width: 370px;
+      box-sizing: border-box;
+    }
+    .form-group {
+      margin-bottom: 14px;
+    }
+    label {
+      display: block;
+      font-size: 12px;
+      font-weight: bold;
+      margin-bottom: 5px;
+      color: #555;
+    }
+    input[type="text"], input[type="date"], select, textarea {
+      width: 100%;
+      box-sizing: border-box;
+      padding: 8px 10px;
+      font-family: inherit;
+      border: 1px solid #d0d0d0;
+      border-radius: 6px;
+      font-size: 13px;
+      background: #fafafa;
+    }
+    input:focus, select:focus, textarea:focus {
+      outline: none;
+      border-color: #333;
+      background: #fff;
+    }
+
+    /* 文字サイズ選択 */
+    .size-selector {
+      display: flex;
+      gap: 16px;
+      background: #f4f4f2;
+      padding: 8px 14px;
+      border-radius: 6px;
+    }
+    .size-option {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 13px;
+      font-weight: normal;
+      cursor: pointer;
+      margin-bottom: 0;
+    }
+    .size-option input {
+      width: auto;
+      margin: 0;
+      cursor: pointer;
+    }
+
+    /* チェックボックス */
+    .checkbox-label {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      font-weight: normal;
+      color: #333;
+      cursor: pointer;
+      user-select: none;
+      margin-top: 6px;
+    }
+    .checkbox-label input {
+      width: auto;
+      margin: 0;
+      cursor: pointer;
+    }
+
+    /* 時間セレクター */
+    .time-picker-wrap {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .time-picker-wrap select {
+      flex: 1;
+    }
+
+    /* 小ボタン */
+    .sub-btn {
+      font-size: 11px;
+      padding: 6px 10px;
+      background: #444;
+      color: #fff;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    .sub-btn:hover { background: #222; }
+
+    /* セットリスト登録済み一覧トレイ */
+    .playlist-tray {
+      margin-top: 8px;
+      max-height: 200px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .playlist-item {
+      background: #f4f4f2;
+      border: 1px solid #e0dfdb;
+      border-radius: 6px;
+      padding: 6px 8px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .track-reorder-btns {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .btn-arrow {
+      background: #e0e0dc;
+      border: none;
+      border-radius: 3px;
+      padding: 1px 5px;
+      font-size: 9px;
+      cursor: pointer;
+      line-height: 1;
+    }
+    .btn-arrow:hover:not(:disabled) {
+      background: #333;
+      color: #fff;
+    }
+    .btn-arrow:disabled {
+      opacity: 0.3;
+      cursor: not-allowed;
+    }
+    .playlist-item-info {
+      flex: 1;
+      min-width: 0;
+    }
+    .tray-title-input {
+      width: 100%;
+      box-sizing: border-box;
+      padding: 3px 6px;
+      font-size: 12px;
+      font-family: inherit;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      background: #fff;
+    }
+    .playlist-item-meta {
+      font-size: 10px;
+      color: #777;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      margin-top: 2px;
+      padding-left: 2px;
+    }
+    .btn-delete-track {
+      background: none;
+      border: none;
+      color: #999;
+      font-size: 16px;
+      cursor: pointer;
+      padding: 0 4px;
+    }
+    .btn-delete-track:hover {
+      color: #e74c3c;
+    }
+
+    /* アクションボタン */
+    .btn-main {
+      width: 100%;
+      padding: 12px;
+      background: #222;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      font-weight: bold;
+      cursor: pointer;
+      margin-top: 14px;
+      font-size: 14px;
+    }
+    .btn-main:hover { background: #444; }
+
+    .btn-export {
+      width: 100%;
+      padding: 11px;
+      background: #0984e3;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      font-weight: bold;
+      cursor: pointer;
+      margin-top: 8px;
+      font-size: 13px;
+    }
+    .btn-export:hover { background: #076bbb; }
+
+    /* ========================================================
+       チケット本体デザイン
+       ======================================================== */
+    .ticket-wrap {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .ticket {
+      width: 320px;
+      padding: 24px 20px;
+      background: #ffffff;
+      color: #1a1a1a;
+      box-shadow: 0 12px 28px rgba(0,0,0,0.08);
+      box-sizing: border-box;
+      line-height: 1.5;
+      position: relative;
+      transition: font-size 0.2s ease;
+    }
+
+    .ticket.size-small { font-size: 11px; }
+    .ticket.size-medium { font-size: 13px; }
+    .ticket.size-large { font-size: 15px; }
+
+    /* ヘッダー */
+    .ticket-header {
+      background: #1a1a1a;
+      color: #ffffff;
+      text-align: center;
+      padding: 12px 14px;
+      margin: 0 0 16px 0;
+      border-radius: 2px;
+    }
+
+    .ticket-title {
+      font-size: 1.25em;
+      font-weight: 700;
+      letter-spacing: 2px;
+      color: #ffffff;
+    }
+    .ticket-date {
+      font-size: 0.9em;
+      letter-spacing: 1.5px;
+      color: #d8d8d4;
+      margin-top: 3px;
+    }
+
+    .section-title {
+      font-size: 0.85em;
+      font-weight: 700;
+      letter-spacing: 1px;
+      margin-top: 14px;
+      margin-bottom: 5px;
+      color: #666;
+    }
+
+    .task-list {
+      list-style: none;
+      padding-left: 0;
+      margin: 0;
+    }
+    .task-list li {
+      display: flex;
+      gap: 4px;
+      margin-bottom: 2px;
+    }
+    .task-list li::before {
+      content: "・";
+      flex-shrink: 0;
+    }
+
+    /* セットリスト */
+    .music-list {
+      list-style: none;
+      padding-left: 0;
+      margin: 0;
+    }
+    .music-list li {
+      display: flex;
+      gap: 6px;
+      margin-bottom: 6px;
+      line-height: 1.35;
+    }
+    .music-list .track-num {
+      flex-shrink: 0;
+      color: #666;
+    }
+    .music-list .track-content {
+      flex: 1;
+      word-break: break-word;
+    }
+    .music-list .track-name {
+      color: #1a1a1a;
+    }
+    .music-list .track-channel {
+      font-size: 0.8em;
+      color: #777;
+      margin-top: 1px;
+    }
+
+    /* 日記テキスト（NOTE見出し・カッコなし） */
+    .note-text {
+      margin-top: 14px;
+      white-space: pre-wrap;
+      word-break: break-word;
+      line-height: 1.55;
+      color: #2b2b2b;
+    }
+
+    /* 切り取り線 */
+    .cut-line {
+      margin: 22px -20px 18px -20px;
+      border: none;
+      border-top: 1px dashed #888;
+      position: relative;
+      text-align: right;
+    }
+    .cut-line::after {
+      content: "✂";
+      position: absolute;
+      right: 14px;
+      top: -9px;
+      background: #ffffff;
+      padding: 0 4px;
+      color: #777;
+      font-size: 12px;
+    }
+
+    /* 半券エリア */
+    .stub {
+      text-align: center;
+    }
+    .stub-date {
+      font-size: 0.8em;
+      color: #777;
+      letter-spacing: 1px;
+      margin-bottom: 4px;
+    }
+    .stub-label {
+      font-size: 0.8em;
+      color: #555;
+      letter-spacing: 1px;
+    }
+    .stub-track-name {
+      font-weight: 700;
+      font-size: 1.05em;
+      margin: 4px 0 2px 0;
+      line-height: 1.4;
+    }
+    .stub-channel-name {
+      font-size: 0.8em;
+      color: #666;
+      margin-bottom: 8px;
+    }
+    #qrcode {
+      display: flex;
+      justify-content: center;
+      margin: 10px 0;
+    }
+    .footer-msg {
+      font-size: 0.85em;
+      letter-spacing: 1.5px;
+      margin-top: 12px;
+      border-bottom: 1.5px solid #1a1a1a;
+      padding-bottom: 3px;
+      display: inline-block;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- 入力フォーム -->
+  <div class="form-panel">
+    <!-- 文字サイズ選択 -->
+    <div class="form-group">
+      <label>チケットの文字サイズ</label>
+      <div class="size-selector">
+        <label class="size-option">
+          <input type="radio" name="ticket-size" value="small" onchange="changeSize(this.value)">
+          小
+        </label>
+        <label class="size-option">
+          <input type="radio" name="ticket-size" value="medium" checked onchange="changeSize(this.value)">
+          中
+        </label>
+        <label class="size-option">
+          <input type="radio" name="ticket-size" value="large" onchange="changeSize(this.value)">
+          大
+        </label>
+      </div>
+    </div>
+
+    <!-- 日付 -->
+    <div class="form-group">
+      <label for="in-date">日付 (カレンダー選択)</label>
+      <input type="date" id="in-date">
+    </div>
+
+    <!-- タスク -->
+    <div class="form-group">
+      <label for="in-tasks">今日のタスク (改行区切り)</label>
+      <textarea id="in-tasks" rows="3">Illustration&#10;FANBOX article&#10;Mail</textarea>
+    </div>
+
+    <!-- 作業時間 -->
+    <div class="form-group">
+      <label>作業時間 (PLAY TIME)</label>
+      <div class="time-picker-wrap">
+        <select id="in-hours"></select>
+        <span>時間</span>
+        <select id="in-minutes"></select>
+        <span>分</span>
+      </div>
+    </div>
+
+    <!-- セットリスト -->
+    <div class="form-group">
+      <label for="in-music-urls">SETLIST (YouTube URL・改行区切りで複数可)</label>
+      <textarea id="in-music-urls" rows="2" placeholder="https://www.youtube.com/watch?v=...&#10;https://www.youtube.com/live/..."></textarea>
+      
+      <div style="margin-top: 5px; display: flex; align-items: center; gap: 8px;">
+        <button type="button" class="sub-btn" onclick="addSetlistTracks()">追加・曲名取得</button>
+        <span id="setlist-loading" style="font-size:11px; color:#666; display:none;">取得中...</span>
+      </div>
+
+      <label class="checkbox-label">
+        <input type="checkbox" id="show-channel-toggle" onchange="updateTicket()">
+        チケットにチャンネル名を表示する
+      </label>
+
+      <!-- 取得後リストトレイ -->
+      <div class="playlist-tray" id="playlist-tray"></div>
+    </div>
+
+    <!-- 日記 -->
+    <div class="form-group">
+      <label for="in-note">日記 (空欄の場合はチケットに非表示)</label>
+      <input type="text" id="in-note" value="今日はラフが進んだ">
+    </div>
+
+    <!-- 今日の1曲 -->
+    <div class="form-group">
+      <label for="in-best-url">TODAY'S TRACK (半券用 YouTube URL)</label>
+      <input type="text" id="in-best-url" placeholder="https://youtu.be/... または live/...">
+      <div style="display:flex; align-items:center; gap:8px; margin-top:4px;">
+        <button type="button" class="sub-btn" onclick="fetchSingleTrackData()">曲名を取得</button>
+        <span id="best-loading" style="font-size:11px; color:#666; display:none;">取得中...</span>
+      </div>
+      <input type="text" id="in-best-title" placeholder="曲名（直接編集も可能）" style="margin-top:6px;">
+      <input type="text" id="in-best-channel" placeholder="チャンネル名（空欄でもOK）" style="margin-top:4px; font-size:11px;">
+    </div>
+
+    <button class="btn-main" onclick="updateTicket()">チケットに反映</button>
+    <button class="btn-export" onclick="exportToPNG()">PNG画像として保存</button>
+  </div>
+
+  <!-- チケット表示エリア -->
+  <div class="ticket-wrap">
+    <div class="ticket size-medium" id="ticket">
+      <div class="ticket-header">
+        <div class="ticket-title">DAILY PASS</div>
+        <div class="ticket-date" id="out-date">2026.09.28</div>
+      </div>
+
+      <div class="section-title">PROGRAM</div>
+      <ul class="task-list" id="out-tasks"></ul>
+
+      <div class="section-title">PLAY TIME</div>
+      <div id="out-playtime">01:00</div>
+
+      <div class="section-title">SETLIST</div>
+      <ul class="music-list" id="out-music"></ul>
+
+      <!-- 日記（入力がある場合のみ表示・NOTE見出しや「」は非表示） -->
+      <div class="note-text" id="out-note"></div>
+
+      <!-- キリトリ線 -->
+      <hr class="cut-line">
+
+      <!-- 半券エリア -->
+      <div class="stub">
+        <div class="stub-date" id="out-stub-date">DATE: 2026.09.28</div>
+        <div class="stub-label">TODAY'S TRACK</div>
+        <div class="stub-track-name" id="out-best-title">No Track Selected</div>
+        <div class="stub-channel-name" id="out-best-channel"></div>
+        <div id="qrcode"></div>
+        <div class="footer-msg">Have a good one!</div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // --- 初期セットアップ ---
+    const dateInput = document.getElementById('in-date');
+    const hoursSelect = document.getElementById('in-hours');
+    const minutesSelect = document.getElementById('in-minutes');
+    const ticketEl = document.getElementById('ticket');
+
+    let playlistTracks = [];
+
+    // 1. 今日の日付
+    const now = new Date();
+    const yyyy = now.getFullYear();
+    const mm = String(now.getMonth() + 1).padStart(2, '0');
+    const dd = String(now.getDate()).padStart(2, '0');
+    dateInput.value = `${yyyy}-${mm}-${dd}`;
+
+    // 2. 作業時間（デフォルト：1時間00分）
+    for (let h = 0; h <= 23; h++) {
+      const opt = document.createElement('option');
+      const val = String(h).padStart(2, '0');
+      opt.value = val;
+      opt.textContent = `${val}`;
+      if (h === 1) opt.selected = true;
+      hoursSelect.appendChild(opt);
+    }
+    for (let m = 0; m < 60; m += 5) {
+      const opt = document.createElement('option');
+      const val = String(m).padStart(2, '0');
+      opt.value = val;
+      opt.textContent = `${val}`;
+      if (m === 0) opt.selected = true;
+      minutesSelect.appendChild(opt);
+    }
+
+    // --- 文字サイズの切り替え ---
+    function changeSize(size) {
+      ticketEl.classList.remove('size-small', 'size-medium', 'size-large');
+      ticketEl.classList.add(`size-${size}`);
+    }
+
+    // --- URL正規化 ---
+    function normalizeYouTubeUrl(url) {
+      const trimmed = url.trim();
+      const liveMatch = trimmed.match(/youtube\.com\/live\/([a-zA-Z0-9_-]+)/);
+      if (liveMatch) return `https://www.youtube.com/watch?v=${liveMatch[1]}`;
+      const shortMatch = trimmed.match(/youtu\.be\/([a-zA-Z0-9_-]+)/);
+      if (shortMatch) return `https://www.youtube.com/watch?v=${shortMatch[1]}`;
+      return trimmed;
+    }
+
+    function isPlaylistUrl(url) {
+      return url.includes('playlist?list=') || url.includes('&list=') || url.includes('/playlist');
+    }
+
+    async function getYouTubeInfo(url) {
+      const normalized = normalizeYouTubeUrl(url);
+      if (!normalized.includes('youtube.com') && !normalized.includes('youtu.be')) {
+        return { title: url, channel: '' };
+      }
+      try {
+        const res = await fetch(`https://noembed.com/embed?url=${encodeURIComponent(normalized)}`);
+        const data = await res.json();
+        return {
+          title: data.title || url,
+          channel: data.author_name || ''
+        };
+      } catch (e) {
+        return { title: url, channel: '' };
+      }
+    }
+
+    async function addSetlistTracks() {
+      const textarea = document.getElementById('in-music-urls');
+      const lines = textarea.value.split('\n').filter(l => l.trim() !== '');
+      if (lines.length === 0) return;
+
+      let hasPlaylist = false;
+      const validUrls = [];
+
+      for (const line of lines) {
+        if (isPlaylistUrl(line)) {
+          hasPlaylist = true;
+        } else {
+          validUrls.push(line.trim());
+        }
+      }
+
+      if (hasPlaylist) {
+        alert("⚠️ プレイリストのリンクは取得できないよー！\n1曲ごとの動画リンク（またはライブ配信リンク）を入れてね🙇");
+      }
+
+      if (validUrls.length === 0) return;
+
+      const loading = document.getElementById('setlist-loading');
+      loading.style.display = 'inline';
+
+      for (const url of validUrls) {
+        const info = await getYouTubeInfo(url);
+        playlistTracks.push({
+          title: info.title,
+          channel: info.channel,
+          url: url
+        });
+      }
+
+      textarea.value = '';
+      loading.style.display = 'none';
+
+      renderPlaylistTray();
+      updateTicket();
+    }
+
+    function updateTrackTitle(index, newTitle) {
+      playlistTracks[index].title = newTitle;
+      updateTicket();
+    }
+
+    function moveTrack(index, direction) {
+      const targetIndex = index + direction;
+      if (targetIndex < 0 || targetIndex >= playlistTracks.length) return;
+      
+      const temp = playlistTracks[index];
+      playlistTracks[index] = playlistTracks[targetIndex];
+      playlistTracks[targetIndex] = temp;
+
+      renderPlaylistTray();
+      updateTicket();
+    }
+
+    function removeTrack(index) {
+      playlistTracks.splice(index, 1);
+      renderPlaylistTray();
+      updateTicket();
+    }
+
+    function renderPlaylistTray() {
+      const tray = document.getElementById('playlist-tray');
+      tray.innerHTML = '';
+
+      playlistTracks.forEach((track, index) => {
+        const item = document.createElement('div');
+        item.className = 'playlist-item';
+        const safeTitle = track.title.replace(/"/g, '&quot;');
+        const channelMeta = track.channel ? ` • ${track.channel}` : '';
+
+        item.innerHTML = `
+          <div class="track-reorder-btns">
+            <button class="btn-arrow" onclick="moveTrack(${index}, -1)" ${index === 0 ? 'disabled' : ''} title="上へ">▲</button>
+            <button class="btn-arrow" onclick="moveTrack(${index}, 1)" ${index === playlistTracks.length - 1 ? 'disabled' : ''} title="下へ">▼</button>
+          </div>
+          <div class="playlist-item-info">
+            <input type="text" class="tray-title-input" value="${safeTitle}" oninput="updateTrackTitle(${index}, this.value)">
+            <div class="playlist-item-meta">${track.url}${channelMeta}</div>
+          </div>
+          <button class="btn-delete-track" onclick="removeTrack(${index})" title="削除">×</button>
+        `;
+        tray.appendChild(item);
+      });
+    }
+
+    async function fetchSingleTrackData() {
+      const urlInput = document.getElementById('in-best-url');
+      const url = urlInput.value.trim();
+      if (!url) return;
+
+      if (isPlaylistUrl(url)) {
+        alert("⚠️ プレイリストのリンクは取得できないよー！\n1曲ごとの動画リンクを入れてね🙇");
+        return;
+      }
+
+      const loading = document.getElementById('best-loading');
+      loading.style.display = 'inline';
+      const info = await getYouTubeInfo(url);
+      document.getElementById('in-best-title').value = info.title;
+      document.getElementById('in-best-channel').value = info.channel;
+      loading.style.display = 'none';
+      updateTicket();
+    }
+
+    // --- チケット描画の更新 ---
+    async function updateTicket() {
+      const showChannel = document.getElementById('show-channel-toggle').checked;
+
+      // 日付
+      const rawDate = dateInput.value;
+      const formattedDate = rawDate ? rawDate.replace(/-/g, '.') : '';
+      document.getElementById('out-date').innerText = formattedDate;
+      document.getElementById('out-stub-date').innerText = `DATE: ${formattedDate}`;
+
+      // タスク
+      const tasks = document.getElementById('in-tasks').value.split('\n').filter(t => t.trim() !== '');
+      const taskList = document.getElementById('out-tasks');
+      taskList.innerHTML = tasks.length > 0 
+        ? tasks.map(t => `<li><budoux-ja>${t}</budoux-ja></li>`).join('')
+        : '<li><budoux-ja>(No Task)</budoux-ja></li>';
+
+      // プレイタイム
+      const hh = hoursSelect.value;
+      const mmVal = minutesSelect.value;
+      document.getElementById('out-playtime').innerText = `${hh}:${mmVal}`;
+
+      // セットリスト
+      const musicList = document.getElementById('out-music');
+      if (playlistTracks.length > 0) {
+        musicList.innerHTML = playlistTracks.map((item, idx) => {
+          const channelHtml = (showChannel && item.channel)
+            ? `<div class="track-channel">— <budoux-ja>${item.channel}</budoux-ja></div>`
+            : '';
+          return `
+            <li>
+              <span class="track-num">${String(idx + 1).padStart(2, '0')}</span>
+              <div class="track-content">
+                <div class="track-name"><budoux-ja>${item.title}</budoux-ja></div>
+                ${channelHtml}
+              </div>
+            </li>
+          `;
+        }).join('');
+      } else {
+        musicList.innerHTML = '<li><span class="track-num">01</span><div class="track-content"><div class="track-name">(No Tracks)</div></div></li>';
+      }
+
+      // 日記（空欄なら非表示、カッコやNOTEの文字は除去）
+      const noteVal = document.getElementById('in-note').value.trim();
+      const outNoteEl = document.getElementById('out-note');
+      if (noteVal) {
+        outNoteEl.innerHTML = `<budoux-ja>${noteVal}</budoux-ja>`;
+        outNoteEl.style.display = 'block';
+      } else {
+        outNoteEl.innerHTML = '';
+        outNoteEl.style.display = 'none';
+      }
+
+      // 今日の1曲
+      const bestUrl = document.getElementById('in-best-url').value.trim();
+      let bestTitle = document.getElementById('in-best-title').value.trim();
+      let bestChannel = document.getElementById('in-best-channel').value.trim();
+      
+      if (!bestTitle && bestUrl && !isPlaylistUrl(bestUrl)) {
+        const info = await getYouTubeInfo(bestUrl);
+        bestTitle = info.title;
+        bestChannel = info.channel;
+        document.getElementById('in-best-title').value = bestTitle;
+        document.getElementById('in-best-channel').value = bestChannel;
+      }
+      
+      const outBestTitleEl = document.getElementById('out-best-title');
+      outBestTitleEl.innerHTML = `<budoux-ja>${bestTitle || '(No Track Selected)'}</budoux-ja>`;
+      
+      // 半券チャンネル名
+      const outBestChannelEl = document.getElementById('out-best-channel');
+      if (showChannel && bestChannel) {
+        outBestChannelEl.innerHTML = `<budoux-ja>by ${bestChannel}</budoux-ja>`;
+        outBestChannelEl.style.display = 'block';
+      } else {
+        outBestChannelEl.innerText = '';
+        outBestChannelEl.style.display = 'none';
+      }
+
+      // QRコード
+      const qrContainer = document.getElementById('qrcode');
+      qrContainer.innerHTML = '';
+      if (bestUrl) {
+        new QRCode(qrContainer, {
+          text: bestUrl,
+          width: 80,
+          height: 80,
+          colorDark: "#1a1a1a",
+          colorLight: "#ffffff",
+          correctLevel: QRCode.CorrectLevel.M
+        });
+      }
+    }
+
+    // --- PNG画像書き出し機能 ---
+    async function exportToPNG() {
+      const exportBtn = document.querySelector('.btn-export');
+      exportBtn.innerText = "書き出し中...";
+      exportBtn.disabled = true;
+
+      try {
+        const canvas = await html2canvas(ticketEl, {
+          scale: 3,
+          useCORS: true,
+          backgroundColor: "#ffffff"
+        });
+
+        const link = document.createElement('a');
+        const rawDate = dateInput.value.replace(/-/g, '');
+        link.download = `daily-pass-${rawDate || 'ticket'}.png`;
+        link.href = canvas.toDataURL('image/png');
+        link.click();
+      } catch (err) {
+        alert("画像の書き出しに失敗しました。");
+        console.error(err);
+      } finally {
+        exportBtn.innerText = "PNG画像として保存";
+        exportBtn.disabled = false;
+      }
+    }
+
+    // 初回実行
+    updateTicket();
+  </script>
+</body>
+</html>
