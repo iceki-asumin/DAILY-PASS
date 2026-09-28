@@ -551,7 +551,7 @@
       const val = String(h).padStart(2, '0');
       opt.value = val;
       opt.textContent = `${val}`;
-      if (h === 1) opt.selected = true;
+      if (h === 0) opt.selected = true;
       hoursSelect.appendChild(opt);
     }
     for (let m = 0; m < 60; m += 5) {
